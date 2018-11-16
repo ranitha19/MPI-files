@@ -14,37 +14,47 @@ int main(int argc, char** argv) {
     float x[world_size];
     int a[world_size][world_size], b[world_size];
     for(i=0;i<world_size;i++)
+	for(j=0;j<world_size;j++)
+		a[i][j] = -1;
+    for(i=0;i<world_size;i++)
     {
 	b[i] = rand()%10;
     }
     for(i=0;i<world_size;i++)
     {
-	for(j=0;j<i;j++)
+	for(j=0;j<=i;j++)
 	{
 		a[i][j] = rand()%10;
 	}
     }
     if(world_rank == 0)
     {
-	x[0] = (float)b[0]/a[0][0];
-	printf("x[%d] = %f ",world_rank,x[world_rank]);
-        MPI_Send(&x[0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+	x[world_rank] = b[world_rank]/(a[world_rank][world_rank]*1.0);
+	printf("x[%d] = %f\n",world_rank,x[world_rank]);
+        MPI_Send(&x[world_rank], 1, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
     }
-    else if(world_rank > 0 && world_rank < world_size-1)
+    else if(world_rank > 0 && world_rank < (world_size-1))
     {
-	for(j=0;j<world_size;j++)
+	for(j=0;j<world_rank;j++)
 	{
-		int r1 = world_rank - 1;
-		int r2 = world_rank + 1;
-		MPI_Recv(&x[j], 1, MPI_INT, r1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		MPI_Send(&x[j], 1, MPI_INT, r2, 0, MPI_COMM_WORLD);
-		sum = sum + a[world_rank][j];
+		MPI_Recv(&x[j], 1, MPI_FLOAT, world_rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Send(&x[j], 1, MPI_FLOAT, world_rank + 1, 0, MPI_COMM_WORLD);
+		sum = sum + a[world_rank][j]*x[j];
 	}
-	x[world_rank] = (float)(b[world_rank] - sum)/a[world_rank][world_rank];
-	printf("x[%d] = %f ",world_rank,x[world_rank]);
-	int r = world_rank+1;
-	MPI_Send(&x[world_rank], 1, MPI_INT, r, 0, MPI_COMM_WORLD);
+	x[world_rank] = (b[world_rank] - sum)/(a[world_rank][world_rank]*1.0);
+	printf("x[%d] = %f\n",world_rank,x[world_rank]);
+	MPI_Send(&x[world_rank], 1, MPI_FLOAT, world_rank+1, 0, MPI_COMM_WORLD);
 		
+    }
+    else
+    {
+	for(j=0;j<world_rank;j++)
+	{
+		MPI_Recv(&x[j], 1, MPI_FLOAT, world_rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		sum = sum + a[world_rank][j]*x[j];
+	}
+	x[world_rank] = (b[world_rank] - sum)/(a[world_rank][world_rank]*1.0);
+	printf("x[%d] = %f\n",world_rank,x[world_rank]);
     }
    MPI_Finalize();
 }
